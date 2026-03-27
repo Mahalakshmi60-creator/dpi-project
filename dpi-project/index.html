@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>DPI Disaster Dashboard</title>
+
+<link rel="stylesheet"
+ href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+<style>
+
+body{
+margin:0;
+font-family:Arial;
+display:flex;
+}
+
+#sidebar{
+width:220px;
+background:#222;
+color:white;
+height:100vh;
+padding:20px;
+overflow-y:auto;
+}
+
+#sidebar button{
+width:100%;
+margin:10px 0;
+padding:10px;
+background:#444;
+color:white;
+border:none;
+cursor:pointer;
+transition:background 0.3s;
+}
+
+#sidebar button:hover{
+background:#666;
+}
+
+#content{
+flex:1;
+padding:20px;
+overflow-y:auto;
+height:100vh;
+}
+
+.section{
+display:none;
+}
+
+.active{
+display:block;
+}
+
+#map{
+height:400px;
+width:100%;
+margin-top:20px;
+border-radius:8px;
+}
+
+input[type="range"]{
+width:100%;
+margin:5px 0;
+}
+
+input[type="text"]{
+width:100%;
+padding:8px;
+border:1px solid #ddd;
+border-radius:4px;
+}
+
+select{
+width:100%;
+padding:8px;
+border:1px solid #ddd;
+border-radius:4px;
+}
+
+.result-card{
+background:#f5f5f5;
+padding:15px;
+border-radius:8px;
+margin-top:20px;
+}
+
+#result{
+color:#2c3e50;
+margin-top:10px;
+}
+
+</style>
+</head>
+
+<body>
+
+<div id="sidebar">
+
+<h2>DPI Dashboard</h2>
+
+<button onclick="showSection('home')">Home</button>
+<button onclick="showSection('form')">DPI Calculator</button>
+<button onclick="showSection('mapSection')">Map</button>
+<button onclick="showSection('graph')">Graph</button>
+
+</div>
+
+<div id="content">
+
+<!-- HOME -->
+<div id="home" class="section active">
+<h2>Disaster Preparedness Index</h2>
+<p>Select a disaster scenario and calculate DPI.</p>
+<p>The DPI (Disaster Preparedness Index) measures how prepared a city is for natural disasters.</p>
+<p><strong>Components:</strong> Infrastructure, Healthcare, Emergency Services, Awareness, Resources</p>
+</div>
+
+<!-- FORM -->
+<div id="form" class="section">
+
+<h2>DPI Calculator</h2>
+
+<input id="city" placeholder="City Name"><br><br>
+
+<select id="scenario">
+<option>Flood</option>
+<option>Earthquake</option>
+<option>Cyclone</option>
+</select>
+
+<br><br>
+
+<label>Infrastructure (0-100):</label>
+<input type="range" id="infra" min="0" max="100" value="50"><br>
+
+<label>Healthcare (0-100):</label>
+<input type="range" id="health" min="0" max="100" value="50"><br>
+
+<label>Emergency Services (0-100):</label>
+<input type="range" id="emergency" min="0" max="100" value="50"><br>
+
+<label>Awareness (0-100):</label>
+<input type="range" id="awareness" min="0" max="100" value="50"><br>
+
+<label>Resources (0-100):</label>
+<input type="range" id="resources" min="0" max="100" value="50"><br><br>
+
+<button onclick="calculateDPI()">Calculate DPI</button>
+
+<div class="result-card">
+<h3>Result:</h3>
+<div id="result"></div>
+</div>
+
+</div>
+
+<!-- MAP -->
+<div id="mapSection" class="section">
+
+<h2>City DPI Map</h2>
+
+<div id="map"></div>
+
+</div>
+
+<!-- GRAPH -->
+<div id="graph" class="section">
+
+<h2>DPI Graph</h2>
+
+<canvas id="dpiChart" style="max-height:400px"></canvas>
+
+</div>
+
+</div>
+
+<script>
+
+// Global variables
+let map;
+let chart;
+let sampleData = [];
+
+// Show section function
+function showSection(id){
+    document.querySelectorAll(".section").forEach(s=>s.classList.remove("active"));
+    document.getElementById(id).classList.add("active");
+    
+    // Refresh map when map section becomes active
+    if(id === 'mapSection' && map){
+        setTimeout(() => {
+            map.invalidateSize();
+        }, 100);
+    }
+}
+
+// Calculate DPI function (client-side calculation)
+function calculateDPI(){
+    try {
+        const city = document.getElementById("city").value;
+        const scenario = document.getElementById("scenario").value;
+        
+        // Get values properly using getElementById
+        const infra = Number(document.getElementById("infra").value);
+        const health = Number(document.getElementById("health").value);
+        const emergency = Number(document.getElementById("emergency").value);
+        const awareness = Number(document.getElementById("awareness").value);
+        const resources = Number(document.getElementById("resources").value);
+        
+        // Validate input
+        if(!city){
+            alert("Please enter a city name");
+            return;
+        }
+        
+        // Calculate DPI Score (weighted average)
+        let dpiScore = (infra * 0.25 + health * 0.20 + emergency * 0.20 + 
+                       awareness * 0.15 + resources * 0.20);
+        dpiScore = Math.round(dpiScore * 10) / 10;
+        
+        // Determine category based on DPI score
+        let category;
+        if(dpiScore >= 80) category = "Excellent";
+        else if(dpiScore >= 60) category = "Good";
+        else if(dpiScore >= 40) category = "Moderate";
+        else if(dpiScore >= 20) category = "Poor";
+        else category = "Critical";
+        
+        // Calculate risk probability based on scenario and DPI
+        let riskProbability;
+        if(scenario === "Flood"){
+            riskProbability = Math.max(5, Math.min(95, Math.round(100 - dpiScore + (Math.random() * 10))));
+        } else if(scenario === "Earthquake"){
+            riskProbability = Math.max(5, Math.min(95, Math.round(100 - dpiScore + (Math.random() * 15))));
+        } else {
+            riskProbability = Math.max(5, Math.min(95, Math.round(100 - dpiScore + (Math.random() * 12))));
+        }
+        
+        // Display result
+        document.getElementById("result").innerHTML = `
+            <strong>City:</strong> ${city}<br>
+            <strong>Scenario:</strong> ${scenario}<br>
+            <strong>DPI Score:</strong> ${dpiScore}/100<br>
+            <strong>Category:</strong> <span style="color: ${getCategoryColor(category)}">${category}</span><br>
+            <strong>Risk Probability:</strong> ${riskProbability}%
+        `;
+        
+        // Save to sample data
+        sampleData.push({
+            city: city,
+            dpi: dpiScore,
+            scenario: scenario
+        });
+        
+        // Keep only last 5 cities
+        if(sampleData.length > 5) sampleData.shift();
+        
+        // Update graph
+        updateGraph(dpiScore);
+        
+        // Add marker to map if map is initialized
+        if(map && sampleData.length > 0){
+            addSampleMarkers();
+        }
+        
+    } catch(error){
+        console.error("Error calculating DPI:", error);
+        document.getElementById("result").innerHTML = "Error calculating DPI. Please try again.";
+    }
+}
+
+function getCategoryColor(category){
+    switch(category){
+        case "Excellent": return "#27ae60";
+        case "Good": return "#3498db";
+        case "Moderate": return "#f39c12";
+        case "Poor": return "#e67e22";
+        case "Critical": return "#e74c3c";
+        default: return "#95a5a6";
+    }
+}
+
+function updateGraph(score){
+    const ctx = document.getElementById("dpiChart").getContext("2d");
+    
+    if(chart) chart.destroy();
+    
+    // Create bar chart with historical data
+    const labels = sampleData.map(d => d.city || "Current");
+    const data = sampleData.map(d => d.dpi);
+    
+    // If no historical data, show current score
+    if(labels.length === 0){
+        labels.push("Current");
+        data.push(score);
+    }
+    
+    chart = new Chart(ctx, {
+        type: "bar",
+        data: {
+            labels: labels,
+            datasets: [{
+                label: "DPI Score",
+                data: data,
+                backgroundColor: data.map(v => {
+                    if(v >= 80) return "#27ae60";
+                    if(v >= 60) return "#3498db";
+                    if(v >= 40) return "#f39c12";
+                    if(v >= 20) return "#e67e22";
+                    return "#e74c3c";
+                }),
+                borderColor: "#2c3e50",
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100,
+                    title: {
+                        display: true,
+                        text: "DPI Score"
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: "Cities"
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    position: "top"
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context){
+                            return `DPI Score: ${context.parsed.y}`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+function addSampleMarkers(){
+    // Clear existing markers except the base layers
+    if(window.markers){
+        window.markers.forEach(marker => map.removeLayer(marker));
+    }
+    window.markers = [];
+    
+    // Sample coordinates for demonstration
+    const cityCoords = {
+        "Mumbai": [19.0760, 72.8777],
+        "Delhi": [28.6139, 77.2090],
+        "Chennai": [13.0827, 80.2707],
+        "Kolkata": [22.5726, 88.3639],
+        "Bangalore": [12.9716, 77.5946]
+    };
+    
+    sampleData.forEach(data => {
+        let coords = cityCoords[data.city];
+        if(coords){
+            const color = getCategoryColor(getCategoryFromScore(data.dpi));
+            const marker = L.marker(coords).addTo(map);
+            marker.bindPopup(`
+                <b>${data.city}</b><br>
+                DPI Score: ${data.dpi}<br>
+                Scenario: ${data.scenario}<br>
+                <span style="color:${color}">Preparedness: ${getCategoryFromScore(data.dpi)}</span>
+            `);
+            window.markers.push(marker);
+        }
+    });
+}
+
+function getCategoryFromScore(score){
+    if(score >= 80) return "Excellent";
+    if(score >= 60) return "Good";
+    if(score >= 40) return "Moderate";
+    if(score >= 20) return "Poor";
+    return "Critical";
+}
+
+// Initialize map with error handling
+function initMap(){
+    try {
+        if(map){
+            map.remove();
+        }
+        
+        map = L.map('map').setView([20.5937, 78.9629], 5);
+        
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors',
+            maxZoom: 19
+        }).addTo(map);
+        
+        // Add click handler
+        map.on("click", function(e){
+            const lat = e.latlng.lat.toFixed(2);
+            const lng = e.latlng.lng.toFixed(2);
+            L.popup()
+                .setLatLng(e.latlng)
+                .setContent("Selected Location: " + lat + "," + lng + "<br>Click Calculator to add city data")
+                .openOn(map);
+        });
+        
+        // Add sample markers if data exists
+        if(sampleData.length > 0){
+            addSampleMarkers();
+        }
+        
+        console.log("Map initialized successfully");
+        
+    } catch(error){
+        console.error("Error initializing map:", error);
+        document.getElementById("map").innerHTML = "<p style='color:red'>Error loading map. Please check your internet connection.</p>";
+    }
+}
+
+// Initialize graph with empty data
+function initGraph(){
+    const ctx = document.getElementById("dpiChart").getContext("2d");
+    chart = new Chart(ctx, {
+        type: "bar",
+        data: {
+            labels: ["No Data"],
+            datasets: [{
+                label: "DPI Score",
+                data: [0],
+                backgroundColor: "#95a5a6"
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100
+                }
+            }
+        }
+    });
+}
+
+// Initialize everything when page loads
+window.addEventListener('load', () => {
+    initMap();
+    initGraph();
+    
+    // Add sample data for demonstration
+    setTimeout(() => {
+        if(sampleData.length === 0){
+            document.getElementById("city").value = "Mumbai";
+            document.getElementById("infra").value = 75;
+            document.getElementById("health").value = 80;
+            document.getElementById("emergency").value = 70;
+            document.getElementById("awareness").value = 65;
+            document.getElementById("resources").value = 72;
+        }
+    }, 500);
+});
+
+// Handle window resize for map
+window.addEventListener('resize', () => {
+    if(map && document.getElementById("mapSection").classList.contains("active")){
+        setTimeout(() => {
+            map.invalidateSize();
+        }, 100);
+    }
+});
+
+</script>
+</body>
+</html>

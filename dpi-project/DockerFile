@@ -1,0 +1,8 @@
+==> Cloning from https://github.com/Mahalakshmi60-creator/dpi-project
+Menu
+==> Checking out commit d4680bea51172e361610c5e76f7641d0705a25be in branch main
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 2B done
+#1 DONE 0.0s
+error: failed to solve: failed to read dockerfile: open Dockerfile: no such file or directory
+error: exit status 1
